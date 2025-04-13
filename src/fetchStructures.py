@@ -11,3 +11,30 @@ if not fasta_response.ok:
 
 fasta_lines = fasta_response.text.strip().slip('\n')
 sequence = ''.join(line.strip() for line in fasta_lines if not line.startswith('>'))
+
+#search for similar sequencies
+query = {
+    "query": {
+        "type": "terminal",
+        "service": "sequence",
+        "parameters": {
+            "evalue_cutoff": 1, #lower means more precise search
+            "identity_cutoff": 0.9, #minimum identity between sequencies (90%)
+            "target": "pdb_protein_sequece", #compare chains directly (more precision)
+            "sequence": sequence_only #sequence used as entry
+        }
+    },
+    "retun_type": "entry", #define the results as PDB IDs
+    "request_options": {
+        "pager": {"start": 0, "rows": 10}, #starts from first result and limits to 10 (maximum = 100)
+        "scoring_strategy": "sequence" #order the results from sequece similarity
+    }
+}
+
+search_url = "https://search.rcsb.org/rcsbsearch/v2/query"
+search_response = requests.post(search_url, json=query)
+
+if search_response.ok:
+    similar_sequencies = search_response.json().get("result_set", []) #take the "result_set" list from response or an empty list
+else:
+    print("Search error: ", search_response.status_code)
