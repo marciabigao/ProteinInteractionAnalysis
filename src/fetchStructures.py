@@ -1,8 +1,9 @@
 import requests
+import os
 
 #download sequence in FASTA format
 pdb_id = intput("Digite o ID da sequência de entrada: ")
-fasta_url = f"https://www.rcsb.org/fasta/entry{pdb_id}/display"
+fasta_url = f"https://www.rcsb.org/fasta/entry/{pdb_id}/display"
 
 fasta_response = requests.get(fasta_url)
 if not fasta_response.ok:
@@ -38,3 +39,21 @@ if search_response.ok:
     similar_sequencies = search_response.json().get("result_set", []) #take the "result_set" list from response or an empty list
 else:
     print("Search error: ", search_response.status_code)
+    exit()
+
+#download .cif files from similar_sequencies
+for line in similar_sequencies:
+    download_id = line["identifier"]
+    cif_url = f"https://files.rcsb.org/download/{download_id}.cif"
+    cif_response = requests.get(cif_url)
+
+    folder_path = "../data"
+    os.makedirs(folder_path, exist_ok=True) #make sure folder exists
+
+    if cif_response.ok:
+        file_path = os.path.join(folder_path, f"{download_id}.cif")
+        with open(file_path, 'w') as f:
+            f.write(cif_response.text)
+    else:
+        print("Download error in {download_id}.cif")
+
