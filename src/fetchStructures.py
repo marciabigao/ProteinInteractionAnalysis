@@ -26,6 +26,12 @@ query = {
       "value": sequence
     }
   },
+  "request_options": {
+    "paginate": {
+        "start": 0,
+        "rows": 100
+    }
+  },
   "return_type": "polymer_entity",
 }
 
