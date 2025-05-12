@@ -2,7 +2,8 @@ import requests
 import os
 
 #download sequence in FASTA format
-pdb_id = input("Digite o ID da sequência de entrada: ")
+pdb_id = input("Digite o ID da sequência de entrada: ").upper()
+chain_id = input("Digite a cadeia desejada: ").upper()
 fasta_url = f"https://www.rcsb.org/fasta/entry/{pdb_id}/display"
 
 fasta_response = requests.get(fasta_url)
@@ -11,7 +12,21 @@ if not fasta_response.ok:
     exit()
 
 fasta_lines = fasta_response.text.strip().split('\n')
-sequence = ''.join(line.strip() for line in fasta_lines if not line.startswith('>'))
+
+#separate wanted chain
+sequence = ''
+collecting = False
+
+for line in fasta_lines:
+    if line.startswith('>'):
+        if f"{pdb_id}" and f"{chain_id}" in line:
+            collecting = True
+            continue
+        else:
+            continue
+    elif collecting:
+        sequence += line.strip()
+
 
 #search for similar sequencies
 query = {
@@ -19,7 +34,7 @@ query = {
     "type": "terminal",
     "service": "sequence",
     "parameters": {
-      "evalue_cutoff": 1,
+      "evalue_cutoff": 0.01,
       "identity_cutoff": 0.9,
       "target": "pdb_protein_sequence",
       "sequence_type": "protein",
@@ -37,6 +52,8 @@ query = {
 
 search_url = "https://search.rcsb.org/rcsbsearch/v2/query"
 search_response = requests.post(search_url, json=query)
+
+print(search_response.json())
 
 if search_response.ok:
     similar_sequencies = search_response.json().get("result_set", []) #take the "result_set" list from response or an empty list
