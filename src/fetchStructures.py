@@ -53,8 +53,6 @@ query = {
 search_url = "https://search.rcsb.org/rcsbsearch/v2/query"
 search_response = requests.post(search_url, json=query)
 
-print(search_response.json())
-
 if search_response.ok:
     similar_sequencies = search_response.json().get("result_set", []) #take the "result_set" list from response or an empty list
 else:
