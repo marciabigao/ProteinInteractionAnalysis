@@ -76,4 +76,3 @@ for line in similar_sequencies:
         print("Successful download of " + clean_id + ".cif")
     else:
         print("Download error in " + clean_id + ".cif")
-
