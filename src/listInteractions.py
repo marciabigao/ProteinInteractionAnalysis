@@ -5,9 +5,19 @@ from collections import defaultdict
 def listInteractions(variante):
     #variaveis utilizadas na comparacao das distancias
     pasta = f"../data/{variante}"
-    cadeia_alvo = input("Digite a cadeia alvo da busca: ").strip().upper()
     distancia_minima = 6.00
     interacoes_arquivos = defaultdict(set) #armazena resultados das buscas
+
+    #encontrar cadeias alvo para cada .cif baixado
+    cadeias_alvo = {}
+    caminho_cadeias_alvo = f"../results/cadeias_alvo/cadeias_alvo_{variante}.txt"
+    with open(caminho_cadeias_alvo, "r") as f:
+        linhas_arquivo = f.readlines()
+    for linha in linhas_arquivo:
+        cif_id = linha.strip().split(" ")[0]
+        cadeia_alvo = linha.strip().split(" ")[1]
+
+        cadeias_alvo[cif_id] = cadeia_alvo
 
     #funcao de calculo da distancia
     def distancia_euclidiana(a, b):
@@ -15,6 +25,8 @@ def listInteractions(variante):
 
     #abrindo arquivos e registrando seus dados
     for arquivo in os.listdir(pasta):
+        cif_id = arquivo.split(".")[0]
+        cadeia_alvo = cadeias_alvo[cif_id]
         caminho = os.path.join(pasta, arquivo)
         with open(caminho, "r") as f:
             linhas = f.readlines()
@@ -51,6 +63,8 @@ def listInteractions(variante):
         atomos_alvo = [a for a in atomos if a["cadeia"] == cadeia_alvo]
         outros_atomos = [a for a in atomos if a["cadeia"] != cadeia_alvo and a["residuo"] not in ("HOH", "WAT")] #atomos que nao sao da cadeia pesquisada nem agua
 
+        print(f"Processando {arquivo} com {len(atomos_alvo)} átomos na cadeia alvo e {len(outros_atomos)} átomos externos")
+
         #calcula as distancias e verifica interacao
         for a1 in atomos_alvo:
             for a2 in outros_atomos:
@@ -61,7 +75,7 @@ def listInteractions(variante):
 
 
     #adiciona informacoes de interacao a um arquivo
-    with open("../results/interactionList.txt", "w") as file:
+    with open(f"../results/interacoes/interaction_list_{variante}.txt", "w") as file:
         for arquivo, interacoes in interacoes_arquivos.items():
             file.write(f"Arquivo {arquivo}\n")
 
