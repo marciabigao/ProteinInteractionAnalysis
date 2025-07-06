@@ -1,6 +1,68 @@
 import os
 import math
 from collections import defaultdict
+import shlex
+
+#dicionarios que mapeiam a letra da cadeia para seu nome
+def construir_mapas_cadeias_e_descricoes(linhas):
+    mapa_cadeia_para_entidade = {}
+    mapa_entidade_para_descricao = {}
+
+    #mapeamento da cadeia para o numero da entidade
+    entidade_atual = None
+    strands_atuais = None
+    for linha in linhas:
+        linha = linha.strip()
+        if linha.startswith("_entity_poly.entity_id"):
+            partes = linha.split()
+            if len(partes) > 1:
+                entidade_atual = partes[1]
+        elif linha.startswith("_entity_poly.pdbx_strand_id"):
+            partes = linha.split()
+            if len(partes) > 1:
+                strands_atuais = partes[1].replace(',', ' ').split()
+
+        if entidade_atual and strands_atuais:
+            for cadeia in strands_atuais:
+                mapa_cadeia_para_entidade[cadeia.strip()] = entidade_atual
+            entidade_atual = None
+            strands_atuais = None
+
+    #mapeamento do numero da entidade para sua descrição (nome)
+    in_entity = False
+    colunas_entity = []
+    registros_entity = []
+
+    for linha in linhas:
+        linha = linha.strip()
+        if linha.startswith("loop_"):
+            in_entity = False
+
+        if "_entity.id" in linha:
+            in_entity = True
+            colunas_entity = [linha]
+            registros_entity = []
+            continue
+
+        if in_entity:
+            if linha.startswith("_entity."):
+                colunas_entity.append(linha)
+            elif linha:
+                registros_entity.append(linha)
+
+    for registro in registros_entity:
+        parts = shlex.split(registro)  # RESPEITA aspas simples e duplas!
+        if len(parts) < len(colunas_entity):
+            continue
+        dados = dict(zip(colunas_entity, parts))
+        entity_id = dados.get("_entity.id")
+        descricao = dados.get("_entity.pdbx_description", "")
+        descricao = descricao.strip("'\"")  # Remove aspas externas, se houver
+
+        if entity_id:
+            mapa_entidade_para_descricao[entity_id] = descricao
+
+    return mapa_cadeia_para_entidade, mapa_entidade_para_descricao
 
 def listInteractions(variante):
     #variaveis utilizadas na comparacao das distancias
@@ -30,6 +92,9 @@ def listInteractions(variante):
         caminho = os.path.join(pasta, arquivo)
         with open(caminho, "r") as f:
             linhas = f.readlines()
+        mapa_cadeia_para_entidade, mapa_entidade_para_descricao = construir_mapas_cadeias_e_descricoes(linhas) #para identificar nome das cadeias
+        #print(mapa_cadeia_para_entidade)
+        #print(mapa_entidade_para_descricao)
 
         #encontrando o bloco _atom_site, que contem as informações dos átomos
         atomos = []
@@ -60,8 +125,9 @@ def listInteractions(variante):
                 except (IndexError, ValueError, KeyError):
                     continue #continua pegando outras linhas caso de erro em alguma
 
+        residuos_espurios = ("HOH", "WAT", "ACE", "ACT", "BME", "CSD", "CSW", "EDO", "FMT", "GOL", "MSE", "NAG", "NO3", "PO4", "SGM", "SO4", "TPO", "LU8", "U0C", "7IO", "09V", "XK7") #artefatos cristalográficos, água
         atomos_alvo = [a for a in atomos if a["cadeia"] == cadeia_alvo]
-        outros_atomos = [a for a in atomos if a["cadeia"] != cadeia_alvo and a["residuo"] not in ("HOH", "WAT")] #atomos que nao sao da cadeia pesquisada nem agua
+        outros_atomos = [a for a in atomos if a["cadeia"] != cadeia_alvo and a["residuo"] not in residuos_espurios] #atomos que nao sao da cadeia pesquisada nem espurios
 
         print(f"Processando {arquivo} com {len(atomos_alvo)} átomos na cadeia alvo e {len(outros_atomos)} átomos externos")
 
@@ -70,7 +136,14 @@ def listInteractions(variante):
             for a2 in outros_atomos:
                 d = distancia_euclidiana((a1["x"], a1["y"], a1["z"]), (a2["x"], a2["y"], a2["z"]))
                 if d <= distancia_minima:
-                    identificador = f"{a2['residuo']} (Cadeia {a2['cadeia']})"
+                    entity_id = mapa_cadeia_para_entidade.get(a2["cadeia"])
+                    descricao = mapa_entidade_para_descricao.get(entity_id)
+
+                    if descricao:
+                        identificador = f"{a2['residuo']} (Cadeia {a2['cadeia']}, {descricao})"
+                    else:
+                        identificador = f"{a2['residuo']} (Cadeia {a2['cadeia']})"
+
                     interacoes_arquivos[arquivo].add(identificador)
 
 
@@ -84,6 +157,7 @@ def listInteractions(variante):
             else:
                 for i in interacoes:
                     file.write(f"{i}\n")
+                file.write("\n")
         file.write("\n")
 
 
